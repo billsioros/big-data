@@ -24,10 +24,10 @@ def query_3(session: SparkSession, logger: Logger, joinstrategy1: str, joinstrat
     
     logger.info('Reading Crime Data')
     crime_data = read_crime_data(session, format="csv")
-    crime_data.printSchema()
+    # crime_data.printSchema()
 
     logger.info('Filtering crime data that happened in 2015 and have a Victim Descent')
-    crime_data = crime_data.filter((year(col("DATE OCC")) == 2015) & (col('Vict Descent').isNotNull()) & (col('Vict Descent').isNotNull()))
+    crime_data = crime_data.filter((year(col("DATE OCC")) == 2015) & (col('Vict Descent').isNotNull()))
 
     # reverse geocoding is read as doubles so we cast these
     logger.info('Casting LAT and LON to double')

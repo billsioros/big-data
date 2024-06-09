@@ -1,9 +1,13 @@
 import argparse
 from helpers import get_logger, spark, timer
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from logging import Logger
 from pyspark.sql.functions import col, udf
 from helpers import read_crime_data
+
+from io import StringIO
+import csv
+from typing import List
 
 def TimeToPartOfDay(hour : int) -> str:
     """Converts an hour to a part of the day.
@@ -47,10 +51,28 @@ def use_dataframe(df: DataFrame, logger: Logger) -> DataFrame:
         .groupBy("PartOfDay") \
         .count() \
         .orderBy("count", ascending=False)
-    
+    # parts.explain(extended=True)
     return parts
 
-def use_rdd(df: DataFrame, logger: Logger) -> DataFrame:
+def parse_csv_line(line: str) -> List[str]:
+    """Parse a CSV line string into a list of strings.
+
+    Args:
+        line (str): A string representing a CSV line.
+
+    Returns:
+        List[str]: A list of strings parsed from the CSV line.
+
+    This function takes a string representing a CSV line and parses it into a list of strings.
+    It uses the csv.reader function from the csv module to read the line as a CSV file
+    object, and then extracts the first row from the file object using indexing.
+    """
+
+    return next(csv.reader(StringIO(line), delimiter=","))
+
+
+
+def use_rdd(session : SparkSession, logger: Logger) -> DataFrame:
     """Executes an RDD query to get the number of crimes that occurred on the street in each part of the day.
 
     Args:
@@ -66,10 +88,14 @@ def use_rdd(df: DataFrame, logger: Logger) -> DataFrame:
     logger.info("Filter the RDD to include only crimes that occurred premis STREET.")
     logger.info("Map the RDD to a key-value pair RDD with the key being the part of the day and the value being 1.")
     logger.info("Reduce the RDD by key with sum to get the count of crimes in each part of the day.")
+    parts = session.sparkContext.textFile("./data/crime_data.csv")
+    header = parts.first()
 
-    parts = df.rdd \
-            .filter(lambda x: x['Premis Desc'] == "STREET") \
-            .map(lambda x: (TimeToPartOfDay(x[3].hour), 1)) \
+    parts = parts.filter(lambda line: line != header).map(parse_csv_line)
+
+    # integer division by 100 to get the hour from time occ in military time
+    parts = parts.filter(lambda x: x[header.split(',').index('Premis Desc')] == "STREET") \
+            .map(lambda x: (TimeToPartOfDay(int(x[header.split(',').index('TIME OCC') ]) // 100 ), 1)) \
             .reduceByKey(lambda x,y: x+y) \
             .sortBy(lambda x: x[1], ascending=False)
     
@@ -107,12 +133,13 @@ if __name__ == "__main__":
 
 
         with timer(f"Using {api.upper()} API"):
-            crime_data = read_crime_data(session, format=format)
+            
 
             if api == "df":
+                crime_data = read_crime_data(session, format=format)
                 result = use_dataframe(crime_data, logger)
             elif api == "rdd":
-                result = use_rdd(crime_data, logger)
+                result = use_rdd(session, logger)
 
             result.show()
             
