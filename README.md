@@ -1,10 +1,21 @@
 # Large Scale Data Management Systems
 
-In this project we are tasked with analyzing large data sets using Apache Hadoop (version 3.0 or higher) and Apache Spark (version 3.4 or higher) as primary tools. To
+- [Large Scale Data Management Systems](#large-scale-data-management-systems)
+  - [Setting up our working environment](#setting-up-our-working-environment)
+    - [Creating the Virtual Machines (VMs)](#creating-the-virtual-machines-vms)
+    - [Configuring SSH](#configuring-ssh)
+    - [Installing all the necessary software](#installing-all-the-necessary-software)
+    - [Starting the required services](#starting-the-required-services)
+    - [Submitting a Python job](#submitting-a-python-job)
+    - [Setting up the history server](#setting-up-the-history-server)
+  - [Project](#project)
+    - [Downloading the necessary data sets](#downloading-the-necessary-data-sets)
+    - [Preprocessing the main dataset](#preprocessing-the-main-dataset)
+    - [Query 1](#query-1)
+    - [Query 4](#query-4)
+      - [RDD](#rdd)
 
-We set up and configure the necessary working environment, and utilize virtual machines.
-
-The main objectives of my project are:
+In this project, we are tasked with analyzing large datasets using Apache Hadoop (version 3.0 or higher) and Apache Spark (version 3.4 or higher) as primary tools. We set up and configure the necessary working environment and utilize virtual machines. The main objectives of this project are:
 
 - To become proficient in installing and managing the distributed systems Apache Spark and Apache Hadoop.
 - To apply modern techniques through Spark’s APIs for analyzing large volumes of data.
@@ -20,7 +31,28 @@ The main objectives of my project are:
 >
 > Make sure to update your system's `/etc/hosts` file to correctly resolve the hostnames `master` and `slave` to the respective IP addresses!
 
-## Setting up our working environment
+The main dataset for this project is sourced from the [City of Los Angeles' public data repository](https://data.lacity.org/). It contains crime data recorded in Los Angeles from 2010 to the present. You can download the data in .csv format from the following links:
+
+- [Crime Data from 2010 to 2019](https://data.lacity.org/api/views/63jg-8b9z/rows.csv?accessType=DOWNLOAD)
+- [Crime Data from 2020 to Present](https://data.lacity.org/api/views/2nrs-mtv8/rows.csv?accessType=DOWNLOAD)
+
+Additionally, the links below provide descriptions for each of the 28 fields in the dataset, which will be helpful for the project. You can also find related or explanatory datasets in the “Attachments” section.
+
+- [Crime Data Field Descriptions (2010-2019)](https://data.lacity.org/Public-Safety/Crime-Data-from-2010-to-2019/63jg-8b9z)
+- [Crime Data Field Descriptions (2020-Present)](https://data.lacity.org/Public-Safety/Crime-Data-from-2020-to-Present/2nrs-mtv8)
+
+In addition to the primary dataset, a series of smaller, publicly available datasets will also be used:
+
+**LA Police Stations:** This dataset contains the locations of the 21 police stations in the city of Los Angeles. It is sourced from the city's public data repository and is available in .csv file format [here](https://geohub.lacity.org/datasets/lahub::lapd-police-stations/explore).
+
+> [!WARNING]
+> Due to a change in the coordinate system of the source provided for the LA Police Stations dataset, it is not possible to process it using the geopy library as suggested.Therefore, we will be using the data in [`la_police_stations.csv`](./data/la_police_stations.csv).
+
+**Median Household Income by Zip Code (Los Angeles County):** This smaller dataset includes information on the median household income for areas within Los Angeles County, broken down by ZIP Code. The data is based on census results from 2015, 2017, 2019, and 2021, provided by the Los Angeles Almanac. For this project, only the 2015 data will be needed which is available in .csv file format [here](http://www.dblab.ece.ntua.gr/files/classes/data.tar.gz).
+
+**Reverse Geocoding:** Geocoding refers to translating an address into a location in a coordinate system, while reverse geocoding is the process of converting coordinates (latitude, longitude) back into an address. For this project, reverse geocoding will be necessary to map coordinates to ZIP Codes within Los Angeles. This can be done programmatically using web services known as geocoders and libraries like [`geopy`](https://geopy.readthedocs.io/en/stable/##module-geopy.geocoders). Since this process can be slow due to web service latency, a dataset covering the needed locations has been provided. The dataset is available in .csv file forma [here](http://www.dblab.ece.ntua.gr/files/classes/data.tar.gz).
+
+## Setting up our cluster
 
 ### Creating the Virtual Machines (VMs)
 
@@ -214,30 +246,7 @@ Finally, to start the history server just run `$SPARK_HOME/sbin/start-history-se
 
 ### Downloading the necessary data sets
 
-We first create a directory to store all the data by running `hadoop fs -mkdir -p /user/$USER`.
-
-The main dataset for this project is sourced from the [City of Los Angeles' public data repository](https://data.lacity.org/). It contains crime data recorded in Los Angeles from 2010 to the present. You can download the data in .csv format from the following links:
-
-- [Crime Data from 2010 to 2019](https://data.lacity.org/api/views/63jg-8b9z/rows.csv?accessType=DOWNLOAD)
-- [Crime Data from 2020 to Present](https://data.lacity.org/api/views/2nrs-mtv8/rows.csv?accessType=DOWNLOAD)
-
-Additionally, the links below provide descriptions for each of the 28 fields in the dataset, which will be helpful for the project. You can also find related or explanatory datasets in the “Attachments” section.
-
-- [Crime Data Field Descriptions (2010-2019)](https://data.lacity.org/Public-Safety/Crime-Data-from-2010-to-2019/63jg-8b9z)
-- [Crime Data Field Descriptions (2020-Present)](https://data.lacity.org/Public-Safety/Crime-Data-from-2020-to-Present/2nrs-mtv8)
-
-In addition to the primary dataset, a series of smaller, publicly available datasets will also be used:
-
-**LA Police Stations:** This dataset contains the locations of the 21 police stations in the city of Los Angeles. It is sourced from the city's public data repository and is available in .csv file format [here](https://geohub.lacity.org/datasets/lahub::lapd-police-stations/explore).
-
-> [!WARNING]
-> Due to a change in the coordinate system of the source provided for the LA Police Stations dataset, it is not possible to process it using the geopy library as suggested.Therefore, we will be using the data in [`la_police_stations.csv`](./data/la_police_stations.csv).
-
-**Median Household Income by Zip Code (Los Angeles County):** This smaller dataset includes information on the median household income for areas within Los Angeles County, broken down by ZIP Code. The data is based on census results from 2015, 2017, 2019, and 2021, provided by the Los Angeles Almanac. For this project, only the 2015 data will be needed which is available in .csv file format [here](http://www.dblab.ece.ntua.gr/files/classes/data.tar.gz).
-
-**Reverse Geocoding:** Geocoding refers to translating an address into a location in a coordinate system, while reverse geocoding is the process of converting coordinates (latitude, longitude) back into an address. For this project, reverse geocoding will be necessary to map coordinates to ZIP Codes within Los Angeles. This can be done programmatically using web services known as geocoders and libraries like [`geopy`](https://geopy.readthedocs.io/en/stable/##module-geopy.geocoders). Since this process can be slow due to web service latency, a dataset covering the needed locations has been provided. The dataset is available in .csv file forma [here](http://www.dblab.ece.ntua.gr/files/classes/data.tar.gz).
-
-We must first download the data as follows:
+We first create a directory to store all the data by running `hadoop fs -mkdir -p /user/$USER`. Let's now download the data as follows:
 
 ```shell
 # Download the main dataset
@@ -322,13 +331,115 @@ spark-submit\
 
 ### Query 1
 
+First of all we want to find, for each year, the 3 months with the highest number of recorded crimes. The output should display the specific months for each year, the total number of incidents, and the rank of each month within that year. The results should be presented in ascending order by year and in descending order by the number of records.
+
+We implement two different query strategies: one using the [`DataFrame`](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.DataFrame) API and the other using the [`SQL`](https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/index.html) API.
+
+Furthermore, we compare the performance by reading data from CSV files and then repeat the experiment using the parquet format for the data files.
+
+| File Format | API       | Time to Read File (s) | Time to Execute Query (s) | Total Execution Time (s) |
+| ----------- | --------- | --------------------- | ------------------------- | ------------------------ |
+| CSV         | DataFrame | 19.025176             | 16.433017                 | 35.458518                |
+| CSV         | SQL       | 18.820279             | 16.263681                 | 35.084088                |
+| Parquet     | DataFrame | 8.129294              | 15.227777                 | 23.357188                |
+| Parquet     | SQL       | 8.126157              | 16.708556                 | 24.835045                |
+
+The results clearly demonstrate that Parquet files consistently outperform CSV files in terms of file read time, resulting in quicker overall execution times regardless of the chosen API.
+
+Moreover, for CSV files, the SQL API slightly outperforms the DataFrame API in both read and query execution times. Conversely, for Parquet files, the DataFrame API notably surpasses the SQL API in query execution time.
+
+Parquet files are designed for efficient data retrieval, which naturally leads to better read times.
+
+> [!NOTE]
+> The truncated output of [`Query 1`](./src/query_1.py) is shown below
+>
+> | Year | Month | CrimeCount | Rank |
+> | ---- | ----- | ---------- | ---- |
+> | 2010 | 1     | 19520      | 1    |
+> | 2010 | 3     | 18131      | 2    |
+> | 2010 | 7     | 17857      | 3    |
+> | 2011 | 1     | 18141      | 1    |
+> | 2011 | 7     | 17283      | 2    |
+> | 2011 | 10    | 17034      | 3    |
+> | 2012 | 1     | 17954      | 1    |
+> | 2012 | 8     | 17661      | 2    |
+> | 2012 | 5     | 17502      | 3    |
+
+
 ### Query 4
 
-First of all we need to install the [`geopy`](https://geopy.readthedocs.io/en/stable/) library. `geopy` makes it easy for Python developers to locate the coordinates of addresses, cities, countries, and landmarks across the globe using third-party geocoders and other data sources. We will be using it
+#### RDD
+
+Let's now calculate the number of crimes involving the use of any type of firearms per police department, along with the average distance of each incident from the respective police department and display the results sorted by the number of incidents in descending order.
+
+> [!NOTE]
+>
+> 1. Incidents involving the use of firearms of any type correspond to codes in the *"Weapon Used Cd"* column starting with *"1xx"*.
+> 2. The codes in the *"AREA"* column of the Los Angeles Crime Data correspond to those in the *"PRECINCT"* column of the LA Police Stations and represent the police department responsible for each incident.
+> 3. Some records (incorrectly) refer to *Null Island*. These should be filtered out of the dataset and not considered in the calculation, as they would negatively affect the results of our queries regarding distance.
+
+We are going to be using [`geopy`](https://geopy.readthedocs.io/en/stable/) in order to calculate the distance of each incident from the respective police department. `geopy` makes it easy for Python developers to locate the coordinates of addresses, cities, countries, and landmarks across the globe using third-party geocoders and other data sources. The implementation of our distance function is shown below:
+
+```python
+from geopy.distance import geodesic
+
+
+def distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the distance in kilometers between two geographic points.
+
+    Args:
+        lat1 (float): Latitude of the first point.
+        lon1 (float): Longitude of the first point.
+        lat2 (float): Latitude of the second point.
+        lon2 (float): Longitude of the second point.
+
+    Returns:
+        float: The distance in kilometers between the two points.
+    """
+    return geodesic((lat1, lon1), (lat2, lon2)).km
+```
+
+Installing the [`geopy`](https://geopy.readthedocs.io/en/stable/) library can be done as follows
 
 ```shell
 python3.8 -m pip install geopy
 ```
 
 > [!WARNING]
-> Make sure to install `geopy` on both the master and the slave VM!
+> Make sure to install `geopy` on both the master and the slave VM.
+
+In the scope of this query, we're tasked with joining the Los Angeles Crime Data with the LA Police Stations dataset. To accomplish this, we're exploring two join algorithms using the RDD API: broadcast join and repartition join. Our approach is based on the article titled ["A Comparison of Join Algorithms for Log Processing in MapReduce"](https://dl.acm.org/doi/10.1145/1807167.1807273). Our implementation can be found at [`Query 4 (RDD)`](./src/query_4_rdd.py)
+
+> [!NOTE]
+> The output of [`Query 4 (RDD)`](./src/query_4_rdd.py) is shown below
+>
+> | Division         | Average Distance   | Incidents |
+> | ---------------- | ------------------ | --------- |
+> | 77TH STREET      | 2.689397917722902  | 17021     |
+> | SOUTHEAST        | 2.1059356553935613 | 12948     |
+> | NEWTON           | 2.017146438261081  | 9844      |
+> | SOUTHWEST        | 2.70213487271351   | 8912      |
+> | HOLLENBECK       | 2.6493492384728072 | 6202      |
+> | HARBOR           | 4.075218849177927  | 5622      |
+> | RAMPART          | 1.5750000978486272 | 5116      |
+> | MISSION          | 4.708165065228117  | 4503      |
+> | OLYMPIC          | 1.8206840904852268 | 4424      |
+> | NORTHEAST        | 3.9071086179159047 | 3920      |
+> | FOOTHILL         | 3.802395356836228  | 3775      |
+> | HOLLYWOOD        | 1.461304536392908  | 3643      |
+> | CENTRAL          | 1.13827946302102   | 3615      |
+> | WILSHIRE         | 2.3129170711246134 | 3525      |
+> | NORTH HOLLYWOOD  | 2.7168572127038564 | 3465      |
+> | WEST VALLEY      | 3.5314566358879294 | 2903      |
+> | VAN NUYS         | 2.2198640197215305 | 2733      |
+> | PACIFIC          | 3.7293185318450446 | 2709      |
+> | DEVONSHIRE       | 4.012031581736769  | 2472      |
+> | TOPANGA          | 3.482110128843622  | 2285      |
+> | WEST LOS ANGELES | 4.248587515715775  | 1541      |
+
+- **Repartition Join**: This approach resembles a partitioned sort-merge join seen in parallel RDBMS systems and is available in the Hadoop ecosystem's join package. Implemented within a single MapReduce job, the standard repartition join involves mapping tasks tagging records with their originating table and join key, followed by partitioning, sorting, and merging by the framework. Records with the same join key are grouped and processed by reducers, which perform a cross-product between records from both tables. However, this approach faces challenges when dealing with small key cardinality or skewed data, as it may require buffering all records for a given join key, posing potential memory constraints. Variants of the standard repartition join are utilized in tools like Pig, Hive, and Jaql, albeit they may encounter similar buffering issues, particularly with larger tables.
+- **Broadcast Join**: Particularly useful when dealing with a reference table (R) that is much smaller than the log table (L). Instead of moving both tables across the network as in repartition-based joins, broadcast join broadcasts the smaller table (R) to all nodes, avoiding the network overhead associated with moving the larger table (L). Broadcast join is executed as a map-only job, where each map task retrieves all of R from the distributed file system (DFS) and uses a main-memory hash table to join a split of L with R. The algorithm dynamically decides whether to build the hash table on L or R, depending on which is smaller. If R is smaller, all partitions of R are loaded into memory to build the hash table. If the split of L is smaller, the map function partitions L and joins the corresponding partitions of R and L.
+
+To sum up, broadcast join typically outperforms repartition join when the reference table (R) is significantly smaller than the log table (L). In broadcast join, the smaller table (R) is sent to all nodes, eliminating the need to transfer the larger table (L) multiple times across the network. This method also accelerates data processing by utilizing main-memory hash tables. Conversely, repartition join redistributes both tables across the network, which may lead to slower processing, particularly with larger datasets.
+
+Surprisingly in our case, broadcast join took 42.436191 seconds, while repartition join took 40.830534 seconds. The difference in execution times indicates that factors like dataset size, network conditions, or how the cluster is set up might affect how well each join works.

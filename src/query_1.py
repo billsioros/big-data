@@ -122,15 +122,16 @@ if __name__ == "__main__":
         if file_format not in ["csv", "parquet"]:
             raise NotImplementedError(f"Invalid file format: {file_format}")
 
-        with timer(f"Reading {file_format.title()} file"):
-            df = read_crime_data(session, format=file_format)
+        with timer("Timing the execution of the query"):
+            with timer(f"Reading {file_format.title()} file"):
+                df = read_crime_data(session, format=file_format)
 
-        with timer(f"Using the {api.upper()} API"):
-            if args.api == "df":
-                result = use_dataframe(df, logger)
-            elif args.api == "sql":
-                result = use_sql(session, df, logger)
-            else:
-                raise NotImplementedError(f"Invalid API: {args.api}")
+            with timer(f"Using the {api.upper()} API"):
+                if args.api == "df":
+                    result = use_dataframe(df, logger)
+                elif args.api == "sql":
+                    result = use_sql(session, df, logger)
+                else:
+                    raise NotImplementedError(f"Invalid API: {args.api}")
 
-            result.show(truncate=False)
+                result.show(result.count(), truncate=False)
