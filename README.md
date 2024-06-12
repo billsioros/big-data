@@ -1,19 +1,19 @@
-# Large Scale Data Management Systems
-
-- [Large Scale Data Management Systems](#large-scale-data-management-systems)
-  - [Setting up our working environment](#setting-up-our-working-environment)
-    - [Creating the Virtual Machines (VMs)](#creating-the-virtual-machines-vms)
-    - [Configuring SSH](#configuring-ssh)
-    - [Installing all the necessary software](#installing-all-the-necessary-software)
-    - [Starting the required services](#starting-the-required-services)
-    - [Submitting a Python job](#submitting-a-python-job)
-    - [Setting up the history server](#setting-up-the-history-server)
-  - [Project](#project)
-    - [Downloading the necessary data sets](#downloading-the-necessary-data-sets)
-    - [Preprocessing the main dataset](#preprocessing-the-main-dataset)
-    - [Query 1](#query-1)
-    - [Query 4](#query-4)
-      - [RDD](#rdd)
+- [Setting up our cluster](#setting-up-our-cluster)
+  - [Creating the Virtual Machines (VMs)](#creating-the-virtual-machines-vms)
+  - [Configuring SSH](#configuring-ssh)
+  - [Installing all the necessary software](#installing-all-the-necessary-software)
+  - [Starting the required services](#starting-the-required-services)
+  - [Submitting a Python job](#submitting-a-python-job)
+  - [Setting up the history server](#setting-up-the-history-server)
+- [Project](#project)
+  - [Downloading the necessary data sets](#downloading-the-necessary-data-sets)
+  - [Preprocessing the main dataset](#preprocessing-the-main-dataset)
+  - [Query 1](#query-1)
+  - [Query 2](#query-2)
+  - [Query 3](#query-3)
+  - [Query 4](#query-4)
+    - [Using the RDD API](#using-the-rdd-api)
+    - [Using the DataFrame API](#using-the-dataframe-api)
 
 In this project, we are tasked with analyzing large datasets using Apache Hadoop (version 3.0 or higher) and Apache Spark (version 3.4 or higher) as primary tools. We set up and configure the necessary working environment and utilize virtual machines. The main objectives of this project are:
 
@@ -365,10 +365,120 @@ Parquet files are designed for efficient data retrieval, which naturally leads t
 > | 2012 | 8     | 17661      | 2    |
 > | 2012 | 5     | 17502      | 3    |
 
+### Query 2
+
+We now want to sort the parts of the day according to the number of crimes recorded that took place on the street (*"STREET"*) in descending order. We'll consider the following parts of the day:
+
+- Morning: 5:00 am – 11:59 am
+- Afternoon: 12:00 pm – 4:59 pm
+- Evening: 5:00 pm – 8:59 pm
+- Night: 9:00 pm – 4:59 am
+
+We employ the DataFrame and RDD APIs and use the .csv files when reading the data.
+
+We observe that using the RDD API takes more than double the time to execute than the same query takes when using the DataFrame API. This was expected since the RDD API is a lower-level API and everything is executed as instructed. On the other hand, the DataFrame API is a higher-level API and optimizes each query and afterwards selects the best execution plan for it. Thus, the running times differ a lot in most cases.
+
+![Query 2 Running Times](images/query_2_runninng_times.png)
+
+| **API** | **Execution Time(s)** |
+| ------- | --------------------- |
+| DF      | 28                    |
+| RDD     | 60                    |
+
+*Execution times for different APIs for Query 2*
+
+The most expensive operation in the RDD query is the `reduceByKey` operation which takes more time than the whole query using DataFrames.
+
+![Most Expensive Job in RDD](images/query_2_rdd_most_expensive_job.png)
+
+From the physical plan for Query 2, we observe that the DataFrame API splits the dataset into buckets by hashing the `PartOfDay` field and counts the rows in each bucket before it exchanges information between the nodes, which makes it faster.
+
+![Physical Plan for Query 2](images/physical_plan_query_2.png)
+
+The output for both cases is the same:
+
+| **PartOfDay** | **Count** |
+| ------------- | --------- |
+| Night         | 243815    |
+| Evening       | 192164    |
+| Afternoon     | 151816    |
+| Morning       | 126865    |
+
+*Output for Query 2*
+
+### Query 3
+
+We want to find the descent of the victims in the Los Angeles Crime Data in the three areas with the highest median income and the three areas with the lowest median income, during the year 2015. The results should be presented in two tables, one for each case in descending order of the number of crimes. The query requires two joins:
+
+1. A join on both Latitude and Longitude of the crime data and the reverse geocoding data to map the coordinates of the crimes to ZIP codes.
+2. A join on ZIP codes between the result of the previous join and the three ZIP codes having the highest/lowest median income.
+
+The execution of the query outputs the following:
+
+*Victim Descent Counts in Top 3 Areas by Median Income*
+
+| **Vict Descent**       | **Count** |
+| ---------------------- | --------- |
+| White                  | 347       |
+| Other                  | 110       |
+| Hispanic/Latin/Mexican | 53        |
+| Unknown                | 32        |
+| Black                  | 18        |
+| Other Asian            | 16        |
+
+*Victim Descent Counts in Bottom 3 Areas by Median Income*
+
+| **Vict Descent**               | **Count** |
+| ------------------------------ | --------- |
+| Hispanic/Latin/Mexican         | 1003      |
+| Black                          | 333       |
+| White                          | 272       |
+| Other                          | 166       |
+| Unknown                        | 44        |
+| Other Asian                    | 30        |
+| Korean                         | 4         |
+| Chinese                        | 1         |
+| American Indian/Alaskan Native | 1         |
+
+By using the explain method we observe that in both joins the optimizer chooses the BroadcastHashJoin (BROADCAST below) strategy. We experiment with the following strategies for both joins:
+
+1. **BROADCAST**: The smaller table is broadcasted/replicated to each worker node, and a local hash join is performed in each node.
+2. **MERGE**: Both tables are sorted by the join key and then merged in a linear pass in a two pointer manner.
+3. **SHUFFLE_HASH**: The tables are partitioned based on the join key in worker nodes and a local hash join is performed in each node.
+4. **SHUFFLE_REPLICATE_NL**: The smaller table is replicated in each node and the join is done in a nested loop.
+
+We observe the following running times:
+
+*Join Strategies and Execution Times*
+
+| **JOIN1**            | **JOIN2**            | **Time(s)** |
+| -------------------- | -------------------- | ----------- |
+| SHUFFLE_HASH         | SHUFFLE_REPLICATE_NL | 35.847301   |
+| SHUFFLE_HASH         | SHUFFLE_HASH         | 36.253281   |
+| MERGE                | BROADCAST            | 36.888125   |
+| BROADCAST            | BROADCAST            | 36.959696   |
+| MERGE                | SHUFFLE_REPLICATE_NL | 37.042216   |
+| MERGE                | MERGE                | 37.594658   |
+| SHUFFLE_HASH         | BROADCAST            | 37.588701   |
+| SHUFFLE_HASH         | MERGE                | 37.705298   |
+| MERGE                | SHUFFLE_HASH         | 38.628698   |
+| BROADCAST            | SHUFFLE_REPLICATE_NL | 39.663619   |
+| BROADCAST            | SHUFFLE_HASH         | 39.909909   |
+| BROADCAST            | MERGE                | 40.126103   |
+| SHUFFLE_REPLICATE_NL | BROADCAST            | 577.876121  |
+| SHUFFLE_REPLICATE_NL | SHUFFLE_HASH         | 584.290318  |
+| SHUFFLE_REPLICATE_NL | MERGE                | 693.636377  |
+| SHUFFLE_REPLICATE_NL | SHUFFLE_REPLICATE_NL | 747.882039  |
+
+![Execution Times for Different Join Strategies](images/barplot.png)
+
+We observe that, as expected, whenever the SHUFFLE_REPLICATE_NL strategy is used for the first join, in which both the tables are big, the running times are always more than 10 times greater than using any other join strategy. BROADCAST, MERGE, and SHUFFLE_HASH have similar running times so any of these can be used as the strategy for the first join.
+
+The inputs of the second join are the crime data with the associated ZIP codes for each crime and a small table of just three rows, which includes the three areas with the highest/lowest median income. Therefore, any of the nodes can easily include a full copy of the second table, which suggests that the BROADCAST strategy would be very fast, as verified by the results. Unsurprisingly, the nested loop method is equally fast due to the fact that the second table is extremely small. In conclusion, just like the optimizer, we would choose the BROADCAST strategy for the second join.
 
 ### Query 4
 
-#### RDD
+#### Using the RDD API
 
 Let's now calculate the number of crimes involving the use of any type of firearms per police department, along with the average distance of each incident from the respective police department and display the results sorted by the number of incidents in descending order.
 
@@ -443,3 +553,9 @@ In the scope of this query, we're tasked with joining the Los Angeles Crime Data
 To sum up, broadcast join typically outperforms repartition join when the reference table (R) is significantly smaller than the log table (L). In broadcast join, the smaller table (R) is sent to all nodes, eliminating the need to transfer the larger table (L) multiple times across the network. This method also accelerates data processing by utilizing main-memory hash tables. Conversely, repartition join redistributes both tables across the network, which may lead to slower processing, particularly with larger datasets.
 
 Surprisingly in our case, broadcast join took 42.436191 seconds, while repartition join took 40.830534 seconds. The difference in execution times indicates that factors like dataset size, network conditions, or how the cluster is set up might affect how well each join works.
+
+#### Using the DataFrame API
+
+The previous query can be implemented with ease and in less code using the DataFrame API. In particular, both the Los Angeles Crime Data table and the LA Police Stations table are read as DataFrames. The crime table is filtered to include only cases where firearms are used (the *"Weapon Used Cd"* column starting with *"1xx"*) and where *Latitude* and *Longitude* are not both 0. The two tables are then joined on the police department number, which is responsible for each incident. Just as before, the [geopy](https://geopy.readthedocs.io/en/stable/) library is used in a [`UDF (User-Defined Function)`](https://spark.apache.org/docs/latest/sql-ref-functions-udf-scalar.html) to add a new column to the joined table: the distance between the police department and the incident. Finally, the table is grouped by the Division column and, for each group, the total number of incidents as well as the mean distance of the police department to each incident is calculated. The output is exactly the same as in the case of the RDD.
+
+Using the [`explain`](https://spark.apache.org/docs/3.1.2/api/python/reference/api/pyspark.sql.DataFrame.explain.html) method, we observe that for the join operation the optimizer uses the `BroadcastHashJoin` strategy. This choice is justified by the fact that the LA Police Stations table includes only 21 rows and can be easily replicated in each worker node. The execution time in this case is 38.758769 seconds.

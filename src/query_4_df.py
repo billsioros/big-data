@@ -13,7 +13,7 @@ def get_distance(lat1: float, long1: float, lat2: float, long2: float) -> float:
         lon1 (float): Longitude of the first point.
         lat2 (float): Latitude of the second point.
         lon2 (float): Longitude of the second point.
-    
+
     Returns:
         float: The distance in kilometers between the two points.
     """
@@ -21,13 +21,13 @@ def get_distance(lat1: float, long1: float, lat2: float, long2: float) -> float:
 
 def query_4_df(session: SparkSession, logger: Logger) -> DataFrame:
     """Load crime data, filter those that are about guns (Weapon Used Cd = 1xx), join with LAPD data to get the
-        police station for each crime, calculate the distance between the crime and the police station, group by
-        division and calculate the average distance and the total number of incidents.
-    
+    police station for each crime, calculate the distance between the crime and the police station, group by
+    division and calculate the average distance and the total number of incidents.
+
     Args:
         session (SparkSession): The SparkSession object.
         logger (Logger): The Logger object.
-    
+
     Returns:
         DataFrame: The results of the query.
     """
@@ -42,13 +42,13 @@ def query_4_df(session: SparkSession, logger: Logger) -> DataFrame:
 
     logger.info('Reading LAPD data')
     lapd_data = read(session, "la_police_stations.csv")
-    
+
 
     logger.info('Joining crime data with LAPD data')
     crime_data_with_lapd = crime_data.join(lapd_data, crime_data['AREA'] == lapd_data['PREC'], how="inner")
     crime_data_with_lapd.explain(extended=True)
     get_distance_udf = udf(get_distance)
-    
+
     logger.info('Calculating the distance between the crime and the police station in a new column')
     crime_data_with_lapd = crime_data_with_lapd.withColumn('Distance', get_distance_udf(col('LAT'), col('LON'), col('Y'), col('X')))
 
@@ -64,14 +64,11 @@ def query_4_df(session: SparkSession, logger: Logger) -> DataFrame:
 
 
 if __name__ == "__main__":
-    
-    with spark(f"Query 4 (DF)") as session:
+
+    with spark("Query 4 (DF)") as session:
         logger = get_logger(session)
-        
+
 
         with timer():
             results = query_4_df(session, logger)
             results.show(results.count())
-
-            
-            

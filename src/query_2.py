@@ -14,7 +14,7 @@ def TimeToPartOfDay(hour : int) -> str:
 
     Args:
         hour (int): The hour to convert.
-    
+
     Returns:
         str: The part of the day corresponding to the given hour.
     """
@@ -33,7 +33,7 @@ def use_dataframe(df: DataFrame, logger: Logger) -> DataFrame:
     Args:
         df (DataFrame): The DataFrame containing the crime data.
         logger (Logger): The logger object.
-    
+
     Returns:
         DataFrame: The results of the DataFrame query.
     """
@@ -41,7 +41,7 @@ def use_dataframe(df: DataFrame, logger: Logger) -> DataFrame:
     # Function to convert hour to the part of the day
     time_to_part_of_day = udf(TimeToPartOfDay)
 
-    
+
     logger.info("Filter the DataFrame to include only crimes that occurred premis STREET.")
     logger.info("Add a new column 'PartOfDay' to the DataFrame based on the 'HOUR OCC' column.")
     logger.info("Group the DataFrame by 'PartOfDay' and count the number of crimes in each group.")
@@ -78,10 +78,9 @@ def use_rdd(session : SparkSession, logger: Logger) -> DataFrame:
     Args:
         df (DataFrame): The DataFrame containing the crime data.
         logger (Logger): The logger object.
-    
+
     Returns:
         DataFrame: The results of the RDD query casted back to a DataFrame.
-    
     """
 
     logger.info("Get RDD")
@@ -98,7 +97,7 @@ def use_rdd(session : SparkSession, logger: Logger) -> DataFrame:
             .map(lambda x: (TimeToPartOfDay(int(x[header.split(',').index('TIME OCC') ]) // 100 ), 1)) \
             .reduceByKey(lambda x,y: x+y) \
             .sortBy(lambda x: x[1], ascending=False)
-    
+
     return parts.toDF(["PartOfDay", "Count"])
 
 def parse_arguments() -> argparse.Namespace:
@@ -123,17 +122,17 @@ if __name__ == "__main__":
     args = parse_arguments()
     api = args.api
     format = 'csv'
-    
+
     with spark(f"Query 2 ({api})") as session:
         logger = get_logger(session)
 
         if api not in ["df", "rdd"]:
             raise NotImplementedError(f"Invalid API: {api}")
-        
+
 
 
         with timer(f"Using {api.upper()} API"):
-            
+
 
             if api == "df":
                 crime_data = read_crime_data(session, format=format)
@@ -142,5 +141,3 @@ if __name__ == "__main__":
                 result = use_rdd(session, logger)
 
             result.show()
-            
-            
